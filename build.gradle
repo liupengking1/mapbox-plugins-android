@@ -5,11 +5,17 @@ buildscript {
     google()
     jcenter()
     maven {   url "https://maven.google.com"   }
+    maven { url 'https://oss.jfrog.org/artifactory/oss-snapshot-local/' }
   }
 
   dependencies {
     classpath pluginDependencies.gradle
     classpath pluginDependencies.kotlin
+
+    // These plugins are for publishing to Bintray
+    classpath pluginDependencies.bintray
+    classpath pluginDependencies.androidPublishPlugin
+    classpath pluginDependencies.artifactory
   }
 }
 
@@ -17,8 +23,8 @@ allprojects {
   repositories {
     google()
     jcenter()
-//    SNAPSHOT repository
-//    maven { url "http://oss.sonatype.org/content/repositories/snapshots/" }
+    // For publishing to Bintray
+    maven { url 'https://mapbox.bintray.com/mapbox' }
   }
 }
 
@@ -30,3 +36,5 @@ subprojects {
 task clean(type: Delete) {
   delete rootProject.buildDir
 }
+
+apply plugin: "com.jfrog.artifactory"
