@@ -13,7 +13,7 @@ publishing {
             version project.ext.versionName
 
             afterEvaluate {
-                artifact("$buildDir/outputs/aar/${project.ext.mapboxArtifactId}-release.aar")
+                artifact("$buildDir/outputs/aar/${project.name}-release.aar")
                 artifact(androidSourcesJar)
                 artifact(androidJavadocsJar)
             }
