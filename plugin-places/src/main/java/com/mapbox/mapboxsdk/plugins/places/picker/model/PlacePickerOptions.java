@@ -35,9 +35,12 @@ public abstract class PlacePickerOptions implements BasePlaceOptions, Parcelable
 
   public abstract boolean includeReverseGeocode();
 
+  public abstract boolean includeSearch();
+
   public static Builder builder() {
     return new AutoValue_PlacePickerOptions.Builder()
-        .includeReverseGeocode(true);
+        .includeReverseGeocode(true)
+        .includeSearch(false);
   }
 
   @AutoValue.Builder
@@ -59,7 +62,6 @@ public abstract class PlacePickerOptions implements BasePlaceOptions, Parcelable
     public abstract Builder statingCameraPosition(@NonNull CameraPosition cameraPosition);
 
     /**
-     *
      * @param includeReverseGeocode whether or not to make a reverse geocoding call to
      *                              retrieve and display information associated with
      *                              the picked location's coordinates. Defaults to true.
@@ -67,6 +69,14 @@ public abstract class PlacePickerOptions implements BasePlaceOptions, Parcelable
      * @return this builder instance for chaining options together
      */
     public abstract Builder includeReverseGeocode(boolean includeReverseGeocode);
+
+    /**
+     * @param includeSearch whether or not to include autocomplete geocoding search
+     *                      field with the Place Picker UI. Defaults to false.
+     *
+     * @return this builder instance for chaining options together
+     */
+    public abstract Builder includeSearch(boolean includeSearch);
 
     public abstract PlacePickerOptions build();
   }

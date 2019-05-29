@@ -2,30 +2,46 @@ package com.mapbox.mapboxsdk.plugins.places.picker.ui;
 
 import android.arch.lifecycle.Observer;
 import android.arch.lifecycle.ViewModelProviders;
+import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.constraint.ConstraintLayout;
+import android.support.design.widget.AppBarLayout;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
+import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.CardView;
+import android.transition.ChangeBounds;
+import android.transition.TransitionManager;
+import android.transition.TransitionSet;
+import android.util.TypedValue;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.animation.OvershootInterpolator;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 
 import com.google.gson.JsonObject;
 import com.mapbox.api.geocoding.v5.models.CarmenFeature;
 import com.mapbox.geojson.Point;
+import com.mapbox.mapboxsdk.Mapbox;
 import com.mapbox.mapboxsdk.camera.CameraUpdateFactory;
 import com.mapbox.mapboxsdk.geometry.LatLng;
+import com.mapbox.mapboxsdk.log.Logger;
 import com.mapbox.mapboxsdk.maps.MapView;
 import com.mapbox.mapboxsdk.maps.MapboxMap;
 import com.mapbox.mapboxsdk.maps.OnMapReadyCallback;
 import com.mapbox.mapboxsdk.maps.Style;
 import com.mapbox.mapboxsdk.places.R;
+import com.mapbox.mapboxsdk.plugins.places.autocomplete.model.PlaceOptions;
+import com.mapbox.mapboxsdk.plugins.places.autocomplete.ui.PlaceAutocompleteFragment;
+import com.mapbox.mapboxsdk.plugins.places.autocomplete.ui.PlaceSelectionListener;
 import com.mapbox.mapboxsdk.plugins.places.common.PlaceConstants;
 import com.mapbox.mapboxsdk.plugins.places.common.utils.ColorUtils;
 import com.mapbox.mapboxsdk.plugins.places.picker.PlacePicker;
@@ -56,6 +72,10 @@ public class PlacePickerActivity extends AppCompatActivity implements OnMapReady
   private MapboxMap mapboxMap;
   private String accessToken;
   private MapView mapView;
+  private CarmenFeature selectedSearchUiCarmenFeatureForBottomSheet;
+  private CardView searchCardView;
+  public Boolean resultsCardViewListIsCollapsed = true;
+  private final int heightToMatchToolbarHeight = 147;
   private boolean includeReverseGeocode;
 
   @Override
@@ -83,10 +103,14 @@ public class PlacePickerActivity extends AppCompatActivity implements OnMapReady
     viewModel.getResults().observe(this, this);
 
     bindViews();
-    addBackButtonListener();
+    if (options.includeSearch()) {
+      AppBarLayout appBarLayout = findViewById(R.id.place_picker_app_bar_layout);
+      appBarLayout.setVisibility(View.GONE);
+    } else {
+      addBackButtonListener();
+      customizeViews();
+    }
     addPlaceSelectedButton();
-    customizeViews();
-
     mapView.onCreate(savedInstanceState);
     mapView.getMapAsync(this);
   }
@@ -129,17 +153,84 @@ public class PlacePickerActivity extends AppCompatActivity implements OnMapReady
           } else if (options.statingCameraPosition() != null) {
             mapboxMap.moveCamera(CameraUpdateFactory.newCameraPosition(options.statingCameraPosition()));
           }
-        }
 
-        if (includeReverseGeocode) {
-          // Initialize with the markers current location information.
-          makeReverseGeocodingSearch();
-        }
+          if (options.includeSearch()) {
+            searchCardView = findViewById(R.id.optional_search_autocomplete_cardview);
+            searchCardView.setVisibility(View.VISIBLE);
+            PlaceAutocompleteFragment autocompleteFragment = new PlaceAutocompleteFragment();
+            PlaceOptions placeOptions = PlaceOptions.builder()
+                .toolbarColor(getThemePrimaryColor(PlacePickerActivity.this))
+//                .hint(getString(R.string.mapbox_plugins_autocomplete_search_hint))
+                .build();
 
+            autocompleteFragment = PlaceAutocompleteFragment.newInstance(
+                Mapbox.getAccessToken(), placeOptions);
+
+            FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+            transaction.add(R.id.optional_search_autocomplete_cardview_fragment_container,
+                autocompleteFragment, PlaceAutocompleteFragment.TAG);
+            transaction.commit();
+
+            autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
+              @Override
+              public void onPlaceSelected(CarmenFeature carmenFeature) {
+
+                PlacePickerActivity.this.selectedSearchUiCarmenFeatureForBottomSheet = carmenFeature;
+
+                mapboxMap.moveCamera(CameraUpdateFactory.newLatLngZoom(
+                    new LatLng(carmenFeature.center().latitude(),
+                        carmenFeature.center().longitude()), mapboxMap.getCameraPosition().zoom));
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                  adjustResultsCardViewHeight(resultsCardViewListIsCollapsed,
+                      searchCardView.getMeasuredHeight());
+                  resultsCardViewListIsCollapsed = !resultsCardViewListIsCollapsed;
+                } else {
+                  searchCardView.setLayoutParams(new FrameLayout.LayoutParams(
+                      searchCardView.getMeasuredWidth(),147));
+                }
+              }
+
+              @Override
+              public void onCancel() {
+                finish();
+              }
+            });
+
+          }
+
+          if (includeReverseGeocode) {
+            // Initialize with the markers current location information.
+            makeReverseGeocodingSearch();
+          }
+        }
         PlacePickerActivity.this.mapboxMap.addOnCameraMoveStartedListener(PlacePickerActivity.this);
         PlacePickerActivity.this.mapboxMap.addOnCameraIdleListener(PlacePickerActivity.this);
       }
     });
+  }
+
+  public void adjustResultsCardViewHeight(boolean expandCard,
+                                           int expandedHeight) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+      TransitionManager.beginDelayedTransition(searchCardView, new TransitionSet()
+          .addTransition(new ChangeBounds()));
+      ViewGroup.LayoutParams params = searchCardView.getLayoutParams();
+      params.height = expandCard ? expandedHeight : heightToMatchToolbarHeight;
+      searchCardView.setLayoutParams(params);
+    }
+  }
+
+  private static int getThemePrimaryColor(Context context) {
+    int colorAttr;
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+      colorAttr = android.R.attr.colorPrimary;
+    } else {
+      //Get colorAccent defined for AppCompat
+      colorAttr = context.getResources().getIdentifier("colorPrimary", "attr", context.getPackageName());
+    }
+    TypedValue outValue = new TypedValue();
+    context.getTheme().resolveAttribute(colorAttr, outValue, true);
+    return outValue.data;
   }
 
   @Override
@@ -162,6 +253,11 @@ public class PlacePickerActivity extends AppCompatActivity implements OnMapReady
     markerImage.animate().translationY(0)
       .setInterpolator(new OvershootInterpolator()).setDuration(250).start();
     if (includeReverseGeocode) {
+      if (options.includeSearch()) {
+        if (selectedSearchUiCarmenFeatureForBottomSheet != null) {
+          bottomSheet.setPlaceDetails(selectedSearchUiCarmenFeatureForBottomSheet);
+        }
+      }
       bottomSheet.setPlaceDetails(null);
       // Initialize with the markers current location information.
       makeReverseGeocodingSearch();
