@@ -8,7 +8,7 @@
     <android.support.v7.widget.CardView
         android:id="@+id/optional_search_autocomplete_cardview"
         android:layout_width="match_parent"
-        android:layout_height="200dp"
+        android:layout_height="55dp"
         android:visibility="invisible"
         tools:visibility="invisible">
 

@@ -30,12 +30,14 @@ import java.util.List;
 import timber.log.Timber;
 
 public class PlaceAutocompleteFragment extends Fragment implements ResultClickCallback,
-  SearchView.QueryListener, SearchView.BackButtonListener,
+  SearchView.QueryListener, QueryFocusListener, SearchView.BackButtonListener, ClearButtonListener,
   ViewTreeObserver.OnScrollChangedListener {
 
   public static final String TAG = "PlaceAutocompleteFragment";
 
   private PlaceSelectionListener placeSelectionListener;
+  private QueryFocusListener queryFocusListener;
+  private ClearButtonListener clearButtonListener;
   private PlaceAutocompleteViewModel viewModel;
   private ResultView searchHistoryView;
   private ResultView searchResultView;
@@ -48,6 +50,7 @@ public class PlaceAutocompleteFragment extends Fragment implements ResultClickCa
   private String accessToken;
   private Integer historyCount;
   private View rootView;
+  private Activity context;
   private int mode;
 
   public static PlaceAutocompleteFragment newInstance(@NonNull String accessToken) {
@@ -108,7 +111,7 @@ public class PlaceAutocompleteFragment extends Fragment implements ResultClickCa
       }
 
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-        Activity context = (Activity) rootView.getContext();
+        context = (Activity) rootView.getContext();
         context.getWindow().setStatusBarColor(placeOptions.statusbarColor());
       }
 
@@ -163,6 +166,11 @@ public class PlaceAutocompleteFragment extends Fragment implements ResultClickCa
   }
 
   @Override
+  public void onClearButtonPress() {
+    clearButtonListener.onClearButtonPress();
+  }
+
+  @Override
   public void onClick(CarmenFeature carmenFeature) {
     viewModel.saveCarmenFeatureToDatabase(carmenFeature);
     if (placeSelectionListener != null) {
@@ -176,6 +184,8 @@ public class PlaceAutocompleteFragment extends Fragment implements ResultClickCa
       resultScrollView.getViewTreeObserver().removeOnScrollChangedListener(this);
     }
     placeSelectionListener = null;
+    queryFocusListener = null;
+    clearButtonListener = null;
     super.onDestroyView();
   }
 
@@ -184,10 +194,34 @@ public class PlaceAutocompleteFragment extends Fragment implements ResultClickCa
     if (placeSelectionListener != null) {
       placeSelectionListener.onCancel();
     }
+    if (queryFocusListener != null) {
+      queryFocusListener.onCancel();
+    }
+    if (clearButtonListener != null) {
+      clearButtonListener.onCancel();
+    }
+  }
+
+  @Override
+  public void onSearchViewHasFocus() {
+    queryFocusListener.onSearchViewHasFocus();
+  }
+
+  @Override
+  public void onCancel() {
+    queryFocusListener.onCancel();
   }
 
   public void setOnPlaceSelectedListener(PlaceSelectionListener listener) {
     placeSelectionListener = listener;
+  }
+
+  public void setOnSearchUiHasFocusListener(QueryFocusListener listener) {
+    queryFocusListener = listener;
+  }
+
+  public void setOnClearButtonListener(ClearButtonListener listener) {
+    clearButtonListener = listener;
   }
 
   private void bindClickListeners() {
@@ -195,7 +229,9 @@ public class PlaceAutocompleteFragment extends Fragment implements ResultClickCa
     searchResultView.setOnItemClickListener(this);
     starredView.setOnItemClickListener(this);
     searchView.setBackButtonListener(this);
+    searchView.setClearButtonListener(this);
     searchView.setQueryListener(this);
+    searchView.setQueryFocusListener(this);
   }
 
   private void bindViews() {
@@ -288,4 +324,5 @@ public class PlaceAutocompleteFragment extends Fragment implements ResultClickCa
   public Integer getHistoryCount() {
     return historyCount;
   }
+
 }

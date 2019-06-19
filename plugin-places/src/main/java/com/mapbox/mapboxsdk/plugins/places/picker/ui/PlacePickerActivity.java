@@ -24,6 +24,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.animation.OvershootInterpolator;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 
@@ -40,8 +41,10 @@ import com.mapbox.mapboxsdk.maps.OnMapReadyCallback;
 import com.mapbox.mapboxsdk.maps.Style;
 import com.mapbox.mapboxsdk.places.R;
 import com.mapbox.mapboxsdk.plugins.places.autocomplete.model.PlaceOptions;
+import com.mapbox.mapboxsdk.plugins.places.autocomplete.ui.ClearButtonListener;
 import com.mapbox.mapboxsdk.plugins.places.autocomplete.ui.PlaceAutocompleteFragment;
 import com.mapbox.mapboxsdk.plugins.places.autocomplete.ui.PlaceSelectionListener;
+import com.mapbox.mapboxsdk.plugins.places.autocomplete.ui.QueryFocusListener;
 import com.mapbox.mapboxsdk.plugins.places.common.PlaceConstants;
 import com.mapbox.mapboxsdk.plugins.places.common.utils.ColorUtils;
 import com.mapbox.mapboxsdk.plugins.places.picker.PlacePicker;
@@ -66,6 +69,7 @@ public class PlacePickerActivity extends AppCompatActivity implements OnMapReady
 
   CurrentPlaceSelectionBottomSheet bottomSheet;
   CarmenFeature carmenFeature;
+  private String TAG = "PlacePickerActivity";
   private PlacePickerViewModel viewModel;
   private PlacePickerOptions options;
   private ImageView markerImage;
@@ -74,9 +78,13 @@ public class PlacePickerActivity extends AppCompatActivity implements OnMapReady
   private MapView mapView;
   private CarmenFeature selectedSearchUiCarmenFeatureForBottomSheet;
   private CardView searchCardView;
+  public boolean includeReverseGeocode;
+  private CardView searchResultsCardView;
+  private EditText searchUiEditText;
   public Boolean resultsCardViewListIsCollapsed = true;
-  private final int heightToMatchToolbarHeight = 147;
-  private boolean includeReverseGeocode;
+  private final int HEIGHT_TO_MATCH_TOOLBAR_HEIGHT = 147;
+  private final int EXPANDED_HEIGHT_TO_DISPLAY_RESULTS = 555;
+
 
   @Override
   protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -129,6 +137,7 @@ public class PlacePickerActivity extends AppCompatActivity implements OnMapReady
     mapView = findViewById(R.id.map_view);
     bottomSheet = findViewById(R.id.mapbox_plugins_picker_bottom_sheet);
     markerImage = findViewById(R.id.mapbox_plugins_image_view_marker);
+    searchResultsCardView = findViewById(R.id.optional_search_autocomplete_cardview);
   }
 
   private void customizeViews() {
@@ -145,9 +154,8 @@ public class PlacePickerActivity extends AppCompatActivity implements OnMapReady
   public void onMapReady(final MapboxMap mapboxMap) {
     this.mapboxMap = mapboxMap;
     mapboxMap.setStyle(Style.MAPBOX_STREETS, new Style.OnStyleLoaded() {
-      @Override
-      public void onStyleLoaded(@NonNull Style style) {
-        if (options != null) {
+      @Override public void onStyleLoaded(@NonNull Style style) {
+          if (options != null) {
           if (options.startingBounds() != null) {
             mapboxMap.moveCamera(CameraUpdateFactory.newLatLngBounds(options.startingBounds(), 0));
           } else if (options.statingCameraPosition() != null) {
@@ -159,35 +167,61 @@ public class PlacePickerActivity extends AppCompatActivity implements OnMapReady
             searchCardView.setVisibility(View.VISIBLE);
             PlaceAutocompleteFragment autocompleteFragment = new PlaceAutocompleteFragment();
             PlaceOptions placeOptions = PlaceOptions.builder()
-                .toolbarColor(getThemePrimaryColor(PlacePickerActivity.this))
-//                .hint(getString(R.string.mapbox_plugins_autocomplete_search_hint))
-                .build();
+              .toolbarColor(getThemePrimaryColor(PlacePickerActivity.this))
+              // .hint(getString(R.string.mapbox_plugins_autocomplete_search_hint))
+              .build();
 
             autocompleteFragment = PlaceAutocompleteFragment.newInstance(
-                Mapbox.getAccessToken(), placeOptions);
+              Mapbox.getAccessToken(), placeOptions);
 
             FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-            transaction.add(R.id.optional_search_autocomplete_cardview_fragment_container,
-                autocompleteFragment, PlaceAutocompleteFragment.TAG);
-            transaction.commit();
+            transaction
+              .add(R.id.optional_search_autocomplete_cardview_fragment_container,
+                autocompleteFragment, PlaceAutocompleteFragment.TAG)
+              .commit();
+
+            autocompleteFragment.setOnClearButtonListener(new ClearButtonListener() {
+              @Override
+              public void onClearButtonPress() {
+                adjustResultsCardViewHeight(!resultsCardViewListIsCollapsed);
+                resultsCardViewListIsCollapsed = !resultsCardViewListIsCollapsed;
+              }
+
+              @Override
+              public void onCancel() {
+                finish();
+              }
+            });
+
+            autocompleteFragment.setOnSearchUiHasFocusListener(new QueryFocusListener() {
+              @Override
+              public void onSearchViewHasFocus() {
+                Logger.d(TAG, "onSearchViewHasFocus");
+
+                adjustResultsCardViewHeight(!resultsCardViewListIsCollapsed);
+                resultsCardViewListIsCollapsed = !resultsCardViewListIsCollapsed;
+
+              }
+
+              @Override
+              public void onCancel() {
+                finish();
+              }
+            });
 
             autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
               @Override
               public void onPlaceSelected(CarmenFeature carmenFeature) {
-
                 PlacePickerActivity.this.selectedSearchUiCarmenFeatureForBottomSheet = carmenFeature;
 
+                // Move camera to selected location
                 mapboxMap.moveCamera(CameraUpdateFactory.newLatLngZoom(
-                    new LatLng(carmenFeature.center().latitude(),
-                        carmenFeature.center().longitude()), mapboxMap.getCameraPosition().zoom));
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-                  adjustResultsCardViewHeight(resultsCardViewListIsCollapsed,
-                      searchCardView.getMeasuredHeight());
-                  resultsCardViewListIsCollapsed = !resultsCardViewListIsCollapsed;
-                } else {
-                  searchCardView.setLayoutParams(new FrameLayout.LayoutParams(
-                      searchCardView.getMeasuredWidth(),147));
-                }
+                  new LatLng(carmenFeature.center().latitude(),
+                    carmenFeature.center().longitude()), mapboxMap.getCameraPosition().zoom));
+
+                // Adjust the height of the cardview that has the list of search results
+                adjustResultsCardViewHeight(!resultsCardViewListIsCollapsed);
+                resultsCardViewListIsCollapsed = !resultsCardViewListIsCollapsed;
               }
 
               @Override
@@ -203,20 +237,24 @@ public class PlacePickerActivity extends AppCompatActivity implements OnMapReady
             makeReverseGeocodingSearch();
           }
         }
+
         PlacePickerActivity.this.mapboxMap.addOnCameraMoveStartedListener(PlacePickerActivity.this);
         PlacePickerActivity.this.mapboxMap.addOnCameraIdleListener(PlacePickerActivity.this);
       }
     });
   }
 
-  public void adjustResultsCardViewHeight(boolean expandCard,
-                                           int expandedHeight) {
+  private void adjustResultsCardViewHeight(boolean collapseCardView) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-      TransitionManager.beginDelayedTransition(searchCardView, new TransitionSet()
-          .addTransition(new ChangeBounds()));
-      ViewGroup.LayoutParams params = searchCardView.getLayoutParams();
-      params.height = expandCard ? expandedHeight : heightToMatchToolbarHeight;
-      searchCardView.setLayoutParams(params);
+      TransitionManager.beginDelayedTransition(searchResultsCardView, new TransitionSet()
+        .addTransition(new ChangeBounds()));
+      ViewGroup.LayoutParams params = searchResultsCardView.getLayoutParams();
+      params.height = collapseCardView ? HEIGHT_TO_MATCH_TOOLBAR_HEIGHT : EXPANDED_HEIGHT_TO_DISPLAY_RESULTS;
+      searchResultsCardView.setLayoutParams(params);
+    } else {
+      searchResultsCardView.setLayoutParams(new FrameLayout.LayoutParams(
+        searchResultsCardView.getMeasuredWidth(), collapseCardView ? HEIGHT_TO_MATCH_TOOLBAR_HEIGHT :
+        EXPANDED_HEIGHT_TO_DISPLAY_RESULTS));
     }
   }
 
@@ -281,8 +319,8 @@ public class PlacePickerActivity extends AppCompatActivity implements OnMapReady
     LatLng latLng = mapboxMap.getCameraPosition().target;
     if (latLng != null) {
       viewModel.reverseGeocode(
-          Point.fromLngLat(latLng.getLongitude(), latLng.getLatitude()),
-          accessToken, options
+        Point.fromLngLat(latLng.getLongitude(), latLng.getLatitude()),
+        accessToken, options
       );
     }
   }

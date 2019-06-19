@@ -17,9 +17,6 @@ import kotlinx.android.synthetic.main.activity_picker_autocomplete_combo_launche
 import kotlinx.android.synthetic.main.activity_picker_launcher.fabLocationPicker
 import kotlinx.android.synthetic.main.activity_picker_launcher.reverseGeocodingSwitch
 
-import kotlinx.android.synthetic.main.activity_picker_launcher.*
-import kotlinx.android.synthetic.main.activity_picker_launcher.fabLocationPicker
-import kotlinx.android.synthetic.main.activity_picker_launcher.reverseGeocodingSwitch
 
 class PickerAutocompleteCombinedActivity : AppCompatActivity() {
 
