@@ -1,10 +1,8 @@
 package com.mapbox.mapboxsdk.plugins.lifecycle;
 
 import android.arch.lifecycle.Lifecycle;
-import android.arch.lifecycle.LifecycleObserver;
 import android.arch.lifecycle.LifecycleOwner;
 import android.arch.lifecycle.OnLifecycleEvent;
-import android.content.ComponentCallbacks;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.os.Bundle;
@@ -25,7 +23,7 @@ import org.jetbrains.annotations.NotNull;
  * </p>
  */
 @UiThread
-public final class LifecyclePlugin implements LifecycleObserver, ComponentCallbacks {
+public final class LifecyclePlugin implements LifecycleCategory {
 
   private final MapView mapView;
   private final Context context;
