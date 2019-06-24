@@ -1,9 +1,9 @@
-MBGL_ANDROID_PLUGINS += traffic;plugin-traffic
 MBGL_ANDROID_PLUGINS += locationlayer;plugin-locationlayer
 MBGL_ANDROID_PLUGINS += building;plugin-building
 MBGL_ANDROID_PLUGINS += offline;plugin-offline
 MBGL_ANDROID_PLUGINS += places;plugin-places
 MBGL_ANDROID_PLUGINS += localization;plugin-localization
+MBGL_ANDROID_PLUGINS += misc;plugin-lifecycle
 
 checkstyle:
 	./gradlew checkstyle
